@@ -12,11 +12,14 @@ import torch.utils
 import torch.nn.functional as F
 import torchvision.datasets as dset
 import torch.backends.cudnn as cudnn
+from tensorboardX import SummaryWriter
 
 from torch.autograd import Variable
 from model_search import Network
 from architect import Architect
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+writer = SummaryWriter('runs/exp_10')
 
 parser = argparse.ArgumentParser("cifar")
 parser.add_argument('--data', type=str, default='../data', help='location of the data corpus')
@@ -70,6 +73,7 @@ def main():
   torch.cuda.manual_seed(args.seed)
   logging.info('gpu device = %d' % args.gpu)
   logging.info("args = %s", args)
+  print("PASSED ARGUMENTS = ",str(args))
 
   criterion = nn.CrossEntropyLoss()
   criterion = criterion.cuda()
@@ -109,20 +113,26 @@ def main():
     scheduler.step()
     lr = scheduler.get_lr()[0]
     logging.info('epoch %d lr %e', epoch, lr)
+    print("-------------------- EPOCH ",epoch,"----------------------")
 
     genotype = model.genotype()
     logging.info('genotype = %s', genotype)
+    print('genotype = ',genotype)
 
-    print(F.softmax(model.alphas_normal, dim=-1))
-    print(F.softmax(model.alphas_reduce, dim=-1))
+    # print(F.softmax(model.alphas_normal, dim=-1))
+    # print(F.softmax(model.alphas_reduce, dim=-1))
 
     # training
     train_acc, train_obj = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr)
     logging.info('train_acc %f', train_acc)
+    writer.add_scalar("Train_Acc",train_acc,epoch)
+    writer.add_scalar("Train_Loss", train_obj, epoch)
 
     # validation
     valid_acc, valid_obj = infer(valid_queue, model, criterion)
     logging.info('valid_acc %f', valid_acc)
+    writer.add_scalar("Valid_Acc", valid_acc, epoch)
+    writer.add_scalar("Valid_Loss", valid_obj, epoch)
 
     utils.save(model, os.path.join(args.save, 'weights.pt'))
 
@@ -161,6 +171,7 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr):
 
     if step % args.report_freq == 0:
       logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+      print('train %03d %e %f %f',step, objs.avg, top1.avg, top5.avg)
 
   return top1.avg, objs.avg
 
