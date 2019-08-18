@@ -66,6 +66,9 @@ class Architect(object):
     for k, v in self.model.named_parameters():
       v_length = np.prod(v.size())
       params[k] = theta[offset: offset+v_length].view(v.size())
+      if hasattr(v, 'org'):
+        # params[k].org = params[k].data.clone()  # (v.org.clone())
+        params[k].org = params[k].clone()
       offset += v_length
 
     assert offset == len(theta)

@@ -18,8 +18,8 @@ from torch.autograd import Variable
 from model_search import Network
 from architect import Architect
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-writer = SummaryWriter('runs/exp_10')
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+writer = SummaryWriter('test_runs/exp_3')
 
 parser = argparse.ArgumentParser("cifar")
 parser.add_argument('--data', type=str, default='../data', help='location of the data corpus')
@@ -50,9 +50,9 @@ args.save = 'search-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
 log_format = '%(asctime)s %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
     format=log_format, datefmt='%m/%d %I:%M:%S %p')
-fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
+fh = logging.FileHandler(os.path.join(args.save, 'temp_log.txt'))
 fh.setFormatter(logging.Formatter(log_format))
 logging.getLogger().addHandler(fh)
 
@@ -109,7 +109,7 @@ def main():
 
   architect = Architect(model, args)
 
-  for epoch in range(args.epochs):
+  for epoch in range(5) : #args.epochs):
     scheduler.step()
     lr = scheduler.get_lr()[0]
     logging.info('epoch %d lr %e', epoch, lr)
@@ -154,6 +154,7 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr):
     input_search = Variable(input_search, requires_grad=False).cuda()
     target_search = Variable(target_search, requires_grad=False).cuda(async=True)
 
+    #if step%3 == 0:
     architect.step(input, target, input_search, target_search, lr, optimizer, unrolled=args.unrolled)
 
     optimizer.zero_grad()
@@ -161,8 +162,14 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr):
     loss = criterion(logits, target)
 
     loss.backward()
-    nn.utils.clip_grad_norm(model.parameters(), args.grad_clip)
+    #nn.utils.clip_grad_norm(model.parameters(), args.grad_clip)
+    for p in list(model.parameters()):
+      if hasattr(p, 'org'):
+        p.data.copy_(p.org)
     optimizer.step()
+    for p in list(model.parameters()):
+      if hasattr(p, 'org'):
+        p.org.copy_(p.data.clamp_(-1, 1))
 
     prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
     objs.update(loss.data[0], n)

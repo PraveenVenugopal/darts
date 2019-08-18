@@ -92,6 +92,7 @@ class Network(nn.Module):
     self.global_pooling = nn.AdaptiveAvgPool2d(1)
     self.classifier = nn.Linear(C_prev, num_classes)
 
+    #init_model(self)
     self._initialize_alphas()
 
   def new(self):
