@@ -18,8 +18,8 @@ from torch.autograd import Variable
 from model_search import Network
 from architect import Architect
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-writer = SummaryWriter('runs/exp_10')
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+writer = SummaryWriter('plain_runs/unrolled_exp_1')
 
 parser = argparse.ArgumentParser("cifar")
 parser.add_argument('--data', type=str, default='../data', help='location of the data corpus')
@@ -49,13 +49,20 @@ args = parser.parse_args()
 args.save = 'search-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
-log_format = '%(asctime)s %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO,
-    format=log_format, datefmt='%m/%d %I:%M:%S %p')
-fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
-fh.setFormatter(logging.Formatter(log_format))
-logging.getLogger().addHandler(fh)
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
 
+log_format = '%(asctime)s %(message)s'
+logging.basicConfig(filename=os.path.join(os.getcwd(),args.save,'log'),level=logging.DEBUG,
+    format=log_format, datefmt='%m/%d %I:%M:%S %p')
+
+# log_format = '%(asctime)s %(message)s'
+# logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+#     format=log_format, datefmt='%m/%d %I:%M:%S %p')
+# fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
+# fh.setFormatter(logging.Formatter(log_format))
+# logging.getLogger().addHandler(fh)
+logging.info(" Staring our baseline for comparison --unrolled")
 
 CIFAR_CLASSES = 10
 
@@ -112,7 +119,7 @@ def main():
   for epoch in range(args.epochs):
     scheduler.step()
     lr = scheduler.get_lr()[0]
-    logging.info('epoch %d lr %e', epoch, lr)
+    logging.info('\n\n ------ epoch %d lr %e -----\n', epoch, lr)
     print("-------------------- EPOCH ",epoch,"----------------------")
 
     genotype = model.genotype()
@@ -124,13 +131,15 @@ def main():
 
     # training
     train_acc, train_obj = train(train_queue, valid_queue, model, architect, criterion, optimizer, lr)
-    logging.info('train_acc %f', train_acc)
+    logging.info(' --- Final Train_acc %f', train_acc)
+    print(" ---- Final Train loss : ",train_obj," Train accuracy : ",train_acc)
     writer.add_scalar("Train_Acc",train_acc,epoch)
     writer.add_scalar("Train_Loss", train_obj, epoch)
 
     # validation
     valid_acc, valid_obj = infer(valid_queue, model, criterion)
-    logging.info('valid_acc %f', valid_acc)
+    logging.info(' --- Final Valid_acc %f', valid_acc)
+    print(" ---- Final Valid loss : ", valid_obj, " Valid accuracy : ", valid_acc)
     writer.add_scalar("Valid_Acc", valid_acc, epoch)
     writer.add_scalar("Valid_Loss", valid_obj, epoch)
 
@@ -171,7 +180,7 @@ def train(train_queue, valid_queue, model, architect, criterion, optimizer, lr):
 
     if step % args.report_freq == 0:
       logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
-      print('train %03d %e %f %f',step, objs.avg, top1.avg, top5.avg)
+      print('train step ',step, "loss : ",objs.avg, "top1 : ",top1.avg, "top5 : ",top5.avg)
 
   return top1.avg, objs.avg
 
@@ -197,6 +206,8 @@ def infer(valid_queue, model, criterion):
 
     if step % args.report_freq == 0:
       logging.info('valid %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+      print('valid step ', step, "loss : ", objs.avg, "top1 : ", top1.avg, "top5 : ",
+            top5.avg)
 
   return top1.avg, objs.avg
 
